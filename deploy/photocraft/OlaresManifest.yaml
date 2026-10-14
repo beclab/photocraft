@@ -7,7 +7,7 @@ metadata:
   title: PhotoCraft
   description: Photoshop-style image editor that runs in your browser
   icon: https://raw.githubusercontent.com/beclab/photocraft/main/assets/app-icon/photocraft-1024.png
-  version: 0.1.0
+  version: 0.1.1
   categories:
     - Utilities_v112
 spec:
