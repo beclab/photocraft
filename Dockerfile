@@ -9,7 +9,8 @@
 ARG RUST_VERSION=1.99
 ARG NGINX_VERSION=1.28-alpine
 
-FROM rust:${RUST_VERSION}-slim-bookworm AS builder
+# The wasm output is architecture-independent, so multi-arch builds compile it once natively.
+FROM --platform=$BUILDPLATFORM rust:${RUST_VERSION}-slim-bookworm AS builder
 # Must match `TRUNK_VERSION` in the `web` job of .github/workflows/release.yml.
 ARG TRUNK_VERSION=0.21.14
 RUN apt-get update \

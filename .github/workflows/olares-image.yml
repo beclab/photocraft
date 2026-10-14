@@ -1,0 +1,63 @@
+name: Olares web image
+
+on:
+  push:
+    tags: ['olares-v*']
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to publish, e.g. 0.9.0-1"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: olares-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_REPO: docker.io/beclab/photocraft-web
+
+jobs:
+  publish:
+    name: publish web image
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v6
+      - name: resolve image tag
+        id: meta
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -eu
+          if [ -n "${INPUT_TAG:-}" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag="${GITHUB_REF_NAME#olares-v}"
+          fi
+          case "$tag" in
+            ""|*[!A-Za-z0-9._-]*) echo "invalid image tag: '$tag'" >&2; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASS }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            CARGO_BUILD_JOBS=4
+            PHOTOCRAFT_BUILD_SHA=${{ github.sha }}
+            PHOTOCRAFT_BUILD_DATE=${{ steps.meta.outputs.date }}
+          push: true
+          tags: ${{ env.IMAGE_REPO }}:${{ steps.meta.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
