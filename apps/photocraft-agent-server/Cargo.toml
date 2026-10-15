@@ -1,0 +1,25 @@
+[package]
+name = "photocraft-agent-server"
+description = "HTTP service that runs PhotoCraft engine commands on uploaded images, for agents"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+heif = ["photocraft-codecs/heif"]
+
+[dependencies]
+photocraft-automation = { path = "../../crates/automation" }
+photocraft-codecs = { workspace = true }
+serde_json = { workspace = true }
+axum = { version = "0.8", default-features = false, features = ["http1", "json", "multipart", "query", "tokio"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "sync", "time", "signal"] }
+tempfile = "3"
+
+[dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
