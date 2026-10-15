@@ -1,0 +1,144 @@
+name: Olares images
+
+on:
+  push:
+    tags: ['olares-v*']
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to publish, e.g. 0.9.0-1"
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: olares-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_REPO: docker.io/beclab/photocraft-web
+  AGENT_REPO: docker.io/beclab/photocraft-agent
+
+jobs:
+  meta:
+    name: resolve image tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      date: ${{ steps.meta.outputs.date }}
+    steps:
+      - name: resolve image tag
+        id: meta
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+        run: |
+          set -eu
+          if [ -n "${INPUT_TAG:-}" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag="${GITHUB_REF_NAME#olares-v}"
+          fi
+          case "$tag" in
+            ""|*[!A-Za-z0-9._-]*) echo "invalid image tag: '$tag'" >&2; exit 1 ;;
+          esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+  publish:
+    name: publish web image
+    needs: meta
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASS }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            CARGO_BUILD_JOBS=4
+            PHOTOCRAFT_BUILD_SHA=${{ github.sha }}
+            PHOTOCRAFT_BUILD_DATE=${{ needs.meta.outputs.date }}
+          push: true
+          tags: ${{ env.IMAGE_REPO }}:${{ needs.meta.outputs.tag }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  # Native runners per architecture: compiling the engine under QEMU takes hours.
+  agent:
+    name: build agent image (${{ matrix.arch }})
+    needs: meta
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASS }}
+      - uses: docker/build-push-action@v7
+        id: build
+        with:
+          context: .
+          file: packaging/agent/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          build-args: |
+            PHOTOCRAFT_BUILD_SHA=${{ github.sha }}
+            PHOTOCRAFT_BUILD_DATE=${{ needs.meta.outputs.date }}
+          outputs: type=image,name=${{ env.AGENT_REPO }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=agent-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=agent-${{ matrix.arch }}
+      - name: record digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          touch "/tmp/digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agent-digest-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  agent-merge:
+    name: publish agent image
+    needs: [meta, agent]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: agent-digest-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASS }}
+      - name: create manifest list
+        working-directory: /tmp/digests
+        env:
+          TAG: ${{ needs.meta.outputs.tag }}
+        run: |
+          set -eu
+          docker buildx imagetools create -t "$AGENT_REPO:$TAG" \
+            $(printf "$AGENT_REPO@sha256:%s " *)
+          docker buildx imagetools inspect "$AGENT_REPO:$TAG"

@@ -1,0 +1,27 @@
+metadata:
+  title: PhotoCraft
+  description: Photoshop-style image editor that runs in your browser
+spec:
+  fullDescription: |
+    ## Overview
+    PhotoCraft is an open-source, Photoshop-comparable image editor written
+    in Rust. This app serves its WebAssembly build: editing runs entirely in
+    your browser, and images never leave your device.
+
+    Open uses the browser file picker; Save and Export download files.
+    Save your work before closing or reloading the page.
+
+    ## Agent API
+    The app also runs photocraft-agent, an HTTP service that applies
+    PhotoCraft engine commands to uploaded images, for agents on this
+    Olares such as Lares. Other apps reach it at
+    `http://photocraft-agent.photocraft-shared:8090`:
+    - `GET /v1/commands?filter=blur` lists commands
+    - `POST /v1/process` (multipart `file`, `steps`, `format`) returns the result
+    - `POST /v1/inspect` (multipart `file`) describes the document
+
+    Only an administrator can install it; it serves every user.
+
+    ## Requirements
+    - A browser with WebGPU or WebGL2
+    - Arch: amd64, arm64
