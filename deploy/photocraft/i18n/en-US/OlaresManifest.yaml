@@ -21,3 +21,6 @@ spec:
     ## Requirements
     - A browser with WebGPU or WebGL2
     - Arch: amd64, arm64
+  upgradeDescription: |
+    Adds agent access: an MCP server, reachable from your LAN or the LarePass
+    VPN, that can read and write files in Home/PhotoCraft.

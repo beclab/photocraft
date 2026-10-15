@@ -20,3 +20,6 @@ spec:
     ## 要求
     - 支持 WebGPU 或 WebGL2 的浏览器
     - 架构：amd64、arm64
+  upgradeDescription: |
+    新增 Agent 接入：一个 MCP 服务，可以从局域网或 LarePass VPN 访问，
+    能读写 Home/PhotoCraft 里的文件。
