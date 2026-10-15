@@ -11,6 +11,16 @@ spec:
     打开文件使用浏览器的文件选择框，保存和导出会下载文件。
     关闭或刷新页面前请先保存。
 
+    ## Agent API
+    应用同时运行 photocraft-agent：一个 HTTP 服务，用 PhotoCraft 引擎命令
+    处理上传的图片，供本机上的 Lares 等 Agent 调用。其他应用通过
+    `http://photocraft-agent.photocraft-shared:8090` 访问：
+    - `GET /v1/commands?filter=blur` 列出命令
+    - `POST /v1/process`（multipart 字段 `file`、`steps`、`format`）返回处理结果
+    - `POST /v1/inspect`（multipart 字段 `file`）返回文档信息
+
+    仅管理员可安装，安装后为所有用户提供服务。
+
     ## 要求
     - 支持 WebGPU 或 WebGL2 的浏览器
     - 架构：amd64、arm64

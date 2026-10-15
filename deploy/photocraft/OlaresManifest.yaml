@@ -7,7 +7,7 @@ metadata:
   title: PhotoCraft
   description: Photoshop-style image editor that runs in your browser
   icon: https://raw.githubusercontent.com/beclab/photocraft/main/assets/app-icon/hicolor/256x256/apps/ai.storyteller.photocraft.png
-  version: 0.1.2
+  version: 0.2.0
   categories:
     - Utilities_v112
     - Creativity
@@ -23,6 +23,17 @@ spec:
     Open uses the browser file picker; Save and Export download files.
     Save your work before closing or reloading the page.
 
+    ## Agent API
+    The app also runs photocraft-agent, an HTTP service that applies
+    PhotoCraft engine commands to uploaded images, for agents on this
+    Olares such as Lares. Other apps reach it at
+    `http://photocraft-agent.photocraft-shared:8090`:
+    - `GET /v1/commands?filter=blur` lists commands
+    - `POST /v1/process` (multipart `file`, `steps`, `format`) returns the result
+    - `POST /v1/inspect` (multipart `file`) describes the document
+
+    Only an administrator can install it; it serves every user.
+
     ## Requirements
     - A browser with WebGPU or WebGL2
     - Arch: amd64, arm64
@@ -36,10 +47,11 @@ spec:
   locale:
     - en-US
     - zh-CN
-  requiredCpu: 50m
-  limitedCpu: "1"
-  requiredMemory: 128Mi
-  limitedMemory: 512Mi
+  onlyAdmin: true
+  requiredCpu: 100m
+  limitedCpu: "5"
+  requiredMemory: 512Mi
+  limitedMemory: 6Gi
   requiredDisk: 50Mi
   limitedDisk: 200Mi
   supportArch:
@@ -54,9 +66,11 @@ entrances:
     authLevel: private
     openMethod: window
 options:
+  shared: true
   dependencies:
     - name: olares
       version: '>=1.12.6-0'
       type: system
 workloadReplicas:
   photocraft: 1
+  photocraft-agent: 1

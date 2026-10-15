@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: photocraft-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: photocraft-agent
+spec:
+  replicas: {{ (index .Values.workloads "photocraft-agent").replicaCount }}
+  selector:
+    matchLabels:
+      app: photocraft-agent
+  template:
+    metadata:
+      labels:
+        app: photocraft-agent
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: photocraft-agent
+          image: {{ .Values.agentImage }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          env:
+            - name: PHOTOCRAFT_AGENT_ADDR
+              value: 0.0.0.0:8090
+            - name: PHOTOCRAFT_AGENT_MAX_JOBS
+              value: "2"
+            - name: PHOTOCRAFT_AGENT_MAX_UPLOAD_MB
+              value: "256"
+            - name: PHOTOCRAFT_AGENT_TIMEOUT_SECS
+              value: "300"
+          ports:
+            - name: http
+              containerPort: 8090
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 256Mi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: photocraft-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: photocraft-agent
+spec:
+  selector:
+    app: photocraft-agent
+  ports:
+    - name: http
+      port: 8090
+      targetPort: 8090
+      protocol: TCP

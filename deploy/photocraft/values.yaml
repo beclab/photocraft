@@ -1,6 +1,9 @@
-image: docker.io/beclab/photocraft-web:0.9.0-1
+image: docker.io/beclab/photocraft-web:0.9.0-2
+agentImage: docker.io/beclab/photocraft-agent:0.9.0-2
 imagePullPolicy: IfNotPresent
 
 workloads:
   photocraft:
+    replicaCount: 1
+  photocraft-agent:
     replicaCount: 1
